@@ -325,34 +325,48 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Resumo Financeiro */}
+      {/* Resumo Financeiro por Container */}
       <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo Financeiro</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="text-center">
-            <p className="text-sm text-gray-600">Total RMB</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {formatRMB(products.reduce((sum, p) => sum + (p.totalRmb || 0), 0))}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-600">Total Invoice U$</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {formatUSD(products.reduce((sum, p) => sum + (p.valorInvoiceUs || 0), 0), 3)}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-600">Peso Total (kg)</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {formatNumber(products.reduce((sum, p) => sum + (p.gw || 0), 0), 0)}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-600">CBM Total</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {formatNumber(products.reduce((sum, p) => sum + (p.cbm || 0), 0), 3)}
-            </p>
-          </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo Financeiro por Container</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {containers.map((container) => {
+            // Calcular total RMB dos produtos deste container
+            const containerProducts = products.filter(product => product.container === container.numeroContainer);
+            const totalRmb = containerProducts.reduce((sum, product) => sum + (product.totalRmb || 0), 0);
+            
+            return (
+              <div key={container.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Ship className="h-5 w-5 text-blue-600 mr-2" />
+                    <p className="text-sm font-medium text-gray-600">Container</p>
+                  </div>
+                  <p className="text-lg font-semibold text-gray-900 mb-3">
+                    {container.numeroContainer || 'N/A'}
+                  </p>
+                  <div className="border-t border-gray-300 pt-3">
+                    <p className="text-sm text-gray-600 mb-1">Total RMB</p>
+                    <p className="text-xl font-bold text-blue-600">
+                      {formatRMB(totalRmb)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {containerProducts.length} produto(s)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          
+          {containers.length === 0 && (
+            <div className="col-span-full text-center py-8">
+              <Ship className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum container cadastrado</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Cadastre containers para visualizar o resumo financeiro.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
