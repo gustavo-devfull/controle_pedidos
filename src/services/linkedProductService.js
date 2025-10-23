@@ -36,8 +36,7 @@ class LinkedProductService {
       console.log('Buscando produtos vinculados...');
       const q = query(
         collection(db, 'linkedProducts'),
-        where('isActive', '==', true),
-        orderBy('createdAt', 'desc')
+        where('isActive', '==', true)
       );
       const querySnapshot = await getDocs(q);
       
@@ -50,6 +49,9 @@ class LinkedProductService {
           updatedAt: doc.data().updatedAt?.toDate?.() || new Date()
         });
       });
+      
+      // Ordenar por data de criação (mais recente primeiro)
+      products.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       
       console.log(`Encontrados ${products.length} produtos vinculados`);
       return products;
@@ -154,8 +156,7 @@ class LinkedProductService {
       console.log('Buscando histórico de status do produto:', productId);
       const q = query(
         collection(db, 'productStatusHistory'),
-        where('productId', '==', productId),
-        orderBy('statusChangeDate', 'desc')
+        where('productId', '==', productId)
       );
       const querySnapshot = await getDocs(q);
       
@@ -168,6 +169,9 @@ class LinkedProductService {
           createdAt: doc.data().createdAt?.toDate?.() || new Date()
         });
       });
+      
+      // Ordenar por data de mudança de status (mais recente primeiro)
+      history.sort((a, b) => new Date(b.statusChangeDate) - new Date(a.statusChangeDate));
       
       return history;
     } catch (error) {
