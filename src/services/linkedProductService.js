@@ -122,6 +122,42 @@ class LinkedProductService {
     }
   }
 
+  // Buscar produto vinculado por referência que pode ser atualizado (não Embarcado ou Nacionalizado)
+  async getLinkedProductByRefForUpdate(referencia) {
+    try {
+      console.log('Buscando produto vinculado por referência para atualização:', referencia);
+      const q = query(
+        collection(db, 'linkedProducts'),
+        where('referencia', '==', referencia),
+        where('isActive', '==', true)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        return null;
+      }
+      
+      // Buscar produto que não seja Embarcado ou Nacionalizado
+      for (const doc of querySnapshot.docs) {
+        const data = doc.data();
+        if (data.status !== 'Embarcado' && data.status !== 'Nacionalizado') {
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate?.() || new Date(),
+            updatedAt: data.updatedAt?.toDate?.() || new Date()
+          };
+        }
+      }
+      
+      // Se não encontrou produto atualizável, retornar null para permitir criação de novo
+      return null;
+    } catch (error) {
+      console.error('Erro ao buscar produto vinculado por referência para atualização:', error);
+      throw error;
+    }
+  }
+
   // Salvar histórico de status (quando mudar para Embarcado ou Nacionalizado)
   async saveStatusHistory(productId, productData, newStatus, previousStatus) {
     try {
@@ -185,10 +221,11 @@ class LinkedProductService {
     try {
       console.log('Sincronizando produto com base externa:', referencia);
       
-      // Buscar produto vinculado existente
-      const existingProduct = await this.getLinkedProductByRef(referencia);
+      // Buscar produto vinculado existente que pode ser atualizado
+      const existingProduct = await this.getLinkedProductByRefForUpdate(referencia);
       
       if (existingProduct) {
+        
         // Atualizar produto existente com dados da base externa
         const updatedData = {
           // Manter dados locais importantes
@@ -219,6 +256,35 @@ class LinkedProductService {
           dun: externalProductData.dun || externalProductData.DUN || existingProduct.dun,
           cest: externalProductData.cest || externalProductData.CEST || existingProduct.cest,
           ean: externalProductData.ean || externalProductData.EAN || existingProduct.ean,
+          codRavi: externalProductData.codRavi || externalProductData.COD_RAVI || existingProduct.codRavi,
+          obsPedido: externalProductData.obsPedido || externalProductData.OBS_PEDIDO || existingProduct.obsPedido,
+          description: externalProductData.description || externalProductData.DESCRIPTION || existingProduct.description,
+          remark: externalProductData.remark || externalProductData.REMARK || existingProduct.remark,
+          obs: externalProductData.obs || externalProductData.OBS || existingProduct.obs,
+          l: externalProductData.l || externalProductData.L || existingProduct.l,
+          w: externalProductData.w || externalProductData.W || existingProduct.w,
+          h: externalProductData.h || externalProductData.H || existingProduct.h,
+          unit: externalProductData.unit || externalProductData.UNIT || existingProduct.unit,
+          fabrica: externalProductData.fabrica || externalProductData.FABRICA || existingProduct.fabrica,
+          itemNo: externalProductData.itemNo || externalProductData.ITEM_NO || existingProduct.itemNo,
+          name: externalProductData.name || externalProductData.NAME || existingProduct.name,
+          nomeInvoiceEn: externalProductData.nomeInvoiceEn || externalProductData.NOME_INVOICE_EN || existingProduct.nomeInvoiceEn,
+          usKg: externalProductData.usKg || externalProductData.US_KG || existingProduct.usKg,
+          usKgMin: externalProductData.usKgMin || externalProductData.US_KG_MIN || existingProduct.usKgMin,
+          cbmTotal: externalProductData.cbmTotal || externalProductData.CBM_TOTAL || existingProduct.cbmTotal,
+          totalPesoLiq: externalProductData.totalPesoLiq || externalProductData.TOTAL_PESO_LIQ || existingProduct.totalPesoLiq,
+          totalPesoBruto: externalProductData.totalPesoBruto || externalProductData.TOTAL_PESO_BRUTO || existingProduct.totalPesoBruto,
+          totalInvoice: externalProductData.totalInvoice || externalProductData.TOTAL_INVOICE || existingProduct.totalInvoice,
+          
+          // Atualizar campos de vinculação
+          produtoExternoId: externalProductData.id,
+          produtoExternoRef: externalProductData.referencia,
+          produtoExternoNome: externalProductData.nomeRaviProfit || externalProductData.name,
+          produtoExternoPreco: externalProductData.unitPriceRmb,
+          produtoExternoCategoria: externalProductData.marca,
+          produtoExternoStock: externalProductData.qtMinVenda,
+          vinculadoEm: existingProduct.vinculadoEm || new Date(),
+          vinculadoPor: existingProduct.vinculadoPor || 'sistema',
           
           // Recalcular campos derivados
           orderQtyUn: this.calculateOrderQtyUn(
@@ -252,7 +318,7 @@ class LinkedProductService {
           gw: externalProductData.gw || externalProductData.GW || 0,
           cbm: externalProductData.cbm || externalProductData.CBM || 0,
           
-          // Campos adicionais
+          // Campos adicionais da base externa
           nomeDiNb: externalProductData.nomeDiNb || externalProductData.NOME_DI_NB || '',
           marca: externalProductData.marca || externalProductData.MARCA || '',
           linhaCotacoes: externalProductData.linhaCotacoes || externalProductData.LINHA_COTACOES || '',
@@ -261,6 +327,35 @@ class LinkedProductService {
           dun: externalProductData.dun || externalProductData.DUN || '',
           cest: externalProductData.cest || externalProductData.CEST || '',
           ean: externalProductData.ean || externalProductData.EAN || '',
+          codRavi: externalProductData.codRavi || externalProductData.COD_RAVI || '',
+          obsPedido: externalProductData.obsPedido || externalProductData.OBS_PEDIDO || '',
+          description: externalProductData.description || externalProductData.DESCRIPTION || '',
+          remark: externalProductData.remark || externalProductData.REMARK || '',
+          obs: externalProductData.obs || externalProductData.OBS || '',
+          l: externalProductData.l || externalProductData.L || 0,
+          w: externalProductData.w || externalProductData.W || 0,
+          h: externalProductData.h || externalProductData.H || 0,
+          unit: externalProductData.unit || externalProductData.UNIT || '',
+          fabrica: externalProductData.fabrica || externalProductData.FABRICA || '',
+          itemNo: externalProductData.itemNo || externalProductData.ITEM_NO || '',
+          name: externalProductData.name || externalProductData.NAME || '',
+          nomeInvoiceEn: externalProductData.nomeInvoiceEn || externalProductData.NOME_INVOICE_EN || '',
+          usKg: externalProductData.usKg || externalProductData.US_KG || 0,
+          usKgMin: externalProductData.usKgMin || externalProductData.US_KG_MIN || 0,
+          cbmTotal: externalProductData.cbmTotal || externalProductData.CBM_TOTAL || 0,
+          totalPesoLiq: externalProductData.totalPesoLiq || externalProductData.TOTAL_PESO_LIQ || 0,
+          totalPesoBruto: externalProductData.totalPesoBruto || externalProductData.TOTAL_PESO_BRUTO || 0,
+          totalInvoice: externalProductData.totalInvoice || externalProductData.TOTAL_INVOICE || 0,
+          
+          // Campos de vinculação
+          produtoExternoId: externalProductData.id,
+          produtoExternoRef: externalProductData.referencia,
+          produtoExternoNome: externalProductData.nomeRaviProfit || externalProductData.name,
+          produtoExternoPreco: externalProductData.unitPriceRmb,
+          produtoExternoCategoria: externalProductData.marca,
+          produtoExternoStock: externalProductData.qtMinVenda,
+          vinculadoEm: new Date(),
+          vinculadoPor: 'sistema',
           
           // Campos padrão
           orderQtyBox: 0,
@@ -300,6 +395,12 @@ class LinkedProductService {
         try {
           if (!product.referencia) {
             console.warn(`Produto ${product.id} sem referência, pulando...`);
+            continue;
+          }
+          
+          // Pular produtos com status Embarcado ou Nacionalizado
+          if (product.status === 'Embarcado' || product.status === 'Nacionalizado') {
+            console.log(`Produto ${product.referencia} com status ${product.status} - pulando sincronização`);
             continue;
           }
           
@@ -372,7 +473,30 @@ class LinkedProductService {
       'marca', 'MARCA',
       'linhaCotacoes', 'LINHA_COTACOES',
       'moq', 'MOQ',
-      'qtMinVenda', 'QT_MIN_VENDA'
+      'qtMinVenda', 'QT_MIN_VENDA',
+      'nomeDiNb', 'NOME_DI_NB',
+      'dun', 'DUN',
+      'cest', 'CEST',
+      'ean', 'EAN',
+      'codRavi', 'COD_RAVI',
+      'obsPedido', 'OBS_PEDIDO',
+      'description', 'DESCRIPTION',
+      'remark', 'REMARK',
+      'obs', 'OBS',
+      'l', 'L',
+      'w', 'W',
+      'h', 'H',
+      'unit', 'UNIT',
+      'fabrica', 'FABRICA',
+      'itemNo', 'ITEM_NO',
+      'name', 'NAME',
+      'nomeInvoiceEn', 'NOME_INVOICE_EN',
+      'usKg', 'US_KG',
+      'usKgMin', 'US_KG_MIN',
+      'cbmTotal', 'CBM_TOTAL',
+      'totalPesoLiq', 'TOTAL_PESO_LIQ',
+      'totalPesoBruto', 'TOTAL_PESO_BRUTO',
+      'totalInvoice', 'TOTAL_INVOICE'
     ];
     
     for (const field of fieldsToCheck) {

@@ -4,7 +4,7 @@ import { hybridProductService } from '../services/hybridProductService';
 import { containerService } from '../services/containerService';
 import { linkedProductService } from '../services/linkedProductService';
 import { ORDER_STATUS } from '../services/productService';
-import { formatNumber, formatUSD, formatRMB } from '../utils/numberFormat';
+import { formatNumber, formatUSD, formatRMB, formatInteger } from '../utils/numberFormat';
 
 const Dashboard = () => {
   const [products, setProducts] = useState([]);
@@ -84,21 +84,6 @@ const Dashboard = () => {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      
-      // Primeiro, verificar e sincronizar automaticamente todos os produtos
-      console.log('Verificando atualizações da base externa...');
-      try {
-        const syncResult = await linkedProductService.checkAndSyncAllProducts();
-        console.log('Resultado da sincronização:', syncResult);
-        
-        if (syncResult.updatedCount > 0) {
-          console.log(`${syncResult.updatedCount} produtos foram atualizados automaticamente`);
-        }
-      } catch (syncError) {
-        console.warn('Erro na sincronização automática (continuando mesmo assim):', syncError);
-      }
-      
-      // Depois, carregar os produtos atualizados
       const data = await linkedProductService.getAllLinkedProducts();
       setProducts(data);
       
@@ -371,51 +356,84 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Distribuição por Status */}
-      <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Distribuição por Status</h3>
-        <div className="space-y-3">
-          {Object.values(ORDER_STATUS).map((status) => {
-            const count = products.filter(p => p.status === status).length;
-            const statsKey = status === ORDER_STATUS.GERAR_PEDIDO ? 'gerarPedido' : 
-                            status === ORDER_STATUS.DESENVOLVIMENTO ? 'desenvolvimento' :
-                            status === ORDER_STATUS.FABRICACAO ? 'fabricacao' :
-                            status === ORDER_STATUS.EMBARCADO ? 'embarcado' :
-                            status === ORDER_STATUS.NACIONALIZADO ? 'nacionalizado' : 'total';
-            
-            return (
-              <div key={status} className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className={`p-2 rounded-lg ${getStatusColor(status)}`}>
-                    {getStatusIcon(status)}
-                  </div>
-                  <span className="text-sm font-medium text-gray-700">{status}</span>
-                </div>
-                <span className="text-sm font-semibold text-gray-900">{formatNumber(count, 0)}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Produtos Recentes */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Produtos Recentes</h3>
-        <div className="space-y-3">
-          {products.slice(0, 5).map((product) => (
-            <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="text-sm font-medium text-gray-900">{product.referencia}</p>
-                <p className="text-xs text-gray-500">{product.nomeRaviProfit || product.nomeRavi || 'N/A'}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold text-gray-900">{formatRMB(product.totalRmb || 0)}</p>
-                <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(product.status)} text-white`}>
-                  {product.status}
-                </span>
-              </div>
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                  Foto
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                  REF
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                  Nome
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                  QTY
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                  U.PRICE
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                  AMOUNT
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                  Status
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                  Container
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {products.slice(0, 10).map((product) => (
+                <tr key={product.id} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="flex justify-center">
+                      <img 
+                        src={product.referencia ? `https://nyc3.digitaloceanspaces.com/moribr/base-fotos/${product.referencia}.jpg` : '/placeholder-product.png'} 
+                        alt={product.referencia || 'Produto'}
+                        className="object-cover rounded-lg border border-gray-200"
+                        style={{ width: '40px', height: '40px' }}
+                        onError={(e) => {
+                          e.target.src = '/placeholder-product.png';
+                        }}
+                      />
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-xs font-medium text-gray-900">
+                    {product.referencia || 'N/A'}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
+                    <div className="max-w-xs truncate" title={product.nomeRaviProfit || product.nomeRavi || 'N/A'}>
+                      {product.nomeRaviProfit || product.nomeRavi || 'N/A'}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 text-center">
+                    {formatInteger(product.orderQtyUn || 0)}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 text-center">
+                    {formatRMB(product.unitPriceRmb || 0)}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 text-center font-medium">
+                    {formatRMB(product.totalRmb || 0)}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-center">
+                    <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(product.status)} text-white`}>
+                      {product.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900 text-center">
+                    {product.container || 'N/A'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

@@ -39,25 +39,33 @@ const ProductList = () => {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      
-      // Primeiro, verificar e sincronizar automaticamente todos os produtos
-      console.log('Verificando atualizações da base externa...');
-      try {
-        const syncResult = await linkedProductService.checkAndSyncAllProducts();
-        console.log('Resultado da sincronização:', syncResult);
-        
-        if (syncResult.updatedCount > 0) {
-          console.log(`${syncResult.updatedCount} produtos foram atualizados automaticamente`);
-        }
-      } catch (syncError) {
-        console.warn('Erro na sincronização automática (continuando mesmo assim):', syncError);
-      }
-      
-      // Depois, carregar os produtos atualizados
       const data = await linkedProductService.getAllLinkedProducts();
       setProducts(data);
     } catch (error) {
       console.error('Erro ao carregar produtos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSyncWithExternalBase = async () => {
+    try {
+      setLoading(true);
+      console.log('Verificando atualizações da base externa...');
+      
+      const syncResult = await linkedProductService.checkAndSyncAllProducts();
+      console.log('Resultado da sincronização:', syncResult);
+      
+      if (syncResult.updatedCount > 0) {
+        alert(`${syncResult.updatedCount} produtos foram atualizados com dados da base externa!`);
+        // Recarregar a lista após sincronização
+        await loadProducts();
+      } else {
+        alert('Todos os produtos já estão atualizados com a base externa!');
+      }
+    } catch (error) {
+      console.error('Erro na sincronização:', error);
+      alert('Erro ao sincronizar com a base externa: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -1035,6 +1043,14 @@ const ProductList = () => {
           >
             <Plus className="h-5 w-5" />
             <span>Novo Produto</span>
+          </button>
+          <button
+            onClick={handleSyncWithExternalBase}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+            disabled={loading}
+          >
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Sincronizar Base Externa</span>
           </button>
           <button
             onClick={handleGenerateOrder}
