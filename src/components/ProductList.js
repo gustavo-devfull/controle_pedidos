@@ -30,6 +30,13 @@ const ProductList = () => {
   const [productToEmbark, setProductToEmbark] = useState(null);
   const [showLightbox, setShowLightbox] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [selectedProducts, setSelectedProducts] = useState(new Set());
+  const [showBatchEditPanel, setShowBatchEditPanel] = useState(false);
+  const [batchEditData, setBatchEditData] = useState({
+    lote: '',
+    status: '',
+    container: ''
+  });
 
   useEffect(() => {
     loadProducts();
@@ -919,6 +926,73 @@ const ProductList = () => {
     setLightboxImage(null);
   };
 
+  // Funções para seleção múltipla
+  const handleSelectProduct = (productId) => {
+    const newSelected = new Set(selectedProducts);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      newSelected.add(productId);
+    }
+    setSelectedProducts(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedProducts.size === sortedAndFilteredProducts.length) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(sortedAndFilteredProducts.map(p => p.id)));
+    }
+  };
+
+  const handleBatchEdit = async () => {
+    if (selectedProducts.size === 0) {
+      alert('Selecione pelo menos um produto para editar');
+      return;
+    }
+
+    try {
+      const updatePromises = Array.from(selectedProducts).map(async (productId) => {
+        const updateData = {};
+        
+        if (batchEditData.lote.trim() !== '') {
+          updateData.lote = batchEditData.lote;
+        }
+        
+        if (batchEditData.status !== '') {
+          updateData.status = batchEditData.status;
+        }
+        
+        if (batchEditData.container !== '') {
+          updateData.container = batchEditData.container;
+          
+          // Sincronizar ETA quando container for alterado
+          const selectedContainer = containers.find(c => c.numeroContainer === batchEditData.container);
+          if (selectedContainer?.eta) {
+            updateData.eta = selectedContainer.eta;
+          }
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await linkedProductService.updateLinkedProduct(productId, updateData);
+        }
+      });
+
+      await Promise.all(updatePromises);
+      await loadProducts();
+      
+      // Limpar seleção e dados
+      setSelectedProducts(new Set());
+      setBatchEditData({ lote: '', status: '', container: '' });
+      setShowBatchEditPanel(false);
+      
+      alert(`${selectedProducts.size} produtos atualizados com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao atualizar produtos em lote:', error);
+      alert('Erro ao atualizar produtos');
+    }
+  };
+
   // Adicionar listener para ESC
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -1116,6 +1190,101 @@ const ProductList = () => {
         </div>
       </div>
 
+      {/* Painel de Ações em Lote */}
+      {selectedProducts.size > 0 && (
+        <div className="bg-blue-50 rounded-lg shadow-sm border border-blue-200 p-4 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="bg-blue-100 rounded-full p-2">
+                <Edit className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-blue-900">
+                  Edição em Lote
+                </h3>
+                <p className="text-sm text-blue-700">
+                  {selectedProducts.size} produto(s) selecionado(s)
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedProducts(new Set());
+                setBatchEditData({ lote: '', status: '', container: '' });
+              }}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              Limpar Seleção
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Campo Lote */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Lote
+              </label>
+              <input
+                type="text"
+                value={batchEditData.lote}
+                onChange={(e) => setBatchEditData(prev => ({ ...prev, lote: e.target.value }))}
+                placeholder="Digite o lote..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            
+            {/* Campo Status */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                value={batchEditData.status}
+                onChange={(e) => setBatchEditData(prev => ({ ...prev, status: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Manter status atual</option>
+                <option value={ORDER_STATUS.DESENVOLVIMENTO}>Desenvolvimento</option>
+                <option value={ORDER_STATUS.GERAR_PEDIDO}>Gerar Pedido</option>
+                <option value={ORDER_STATUS.FABRICACAO}>Fabricação</option>
+                <option value={ORDER_STATUS.EMBARCADO}>Embarcado</option>
+                <option value={ORDER_STATUS.NACIONALIZADO}>Nacionalizado</option>
+              </select>
+            </div>
+            
+            {/* Campo Container */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Container
+              </label>
+              <select
+                value={batchEditData.container}
+                onChange={(e) => setBatchEditData(prev => ({ ...prev, container: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Manter container atual</option>
+                <option value="">Remover container</option>
+                {containers.map(container => (
+                  <option key={container.id} value={container.numeroContainer}>
+                    {container.numeroContainer} - {container.agente || 'Sem agente'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={handleBatchEdit}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
+              <Edit className="h-4 w-4" />
+              <span>Atualizar {selectedProducts.size} Produto(s)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Tabela de Produtos - Todos os Campos */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <style>{`
@@ -1129,7 +1298,7 @@ const ProductList = () => {
           }
           .product-table th,
           .product-table td {
-            height: 100px;
+            height: auto;
             vertical-align: middle;
           }
           .product-table th {
@@ -1142,8 +1311,17 @@ const ProductList = () => {
           <table className="min-w-full divide-y divide-gray-200 product-table" style={{ minWidth: '2240px', borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead>
               <tr>
+                {/* Checkbox de Seleção */}
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedProducts.size === sortedAndFilteredProducts.length && sortedAndFilteredProducts.length > 0}
+                    onChange={handleSelectAll}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
                 {/* Imagem do Produto */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '300px' }}>
                   Imagem
                 </th>
                 {/* Campos Básicos */}
@@ -1371,14 +1549,23 @@ const ProductList = () => {
                       : ''
                   }`}
                 >
+                  {/* Checkbox de Seleção */}
+                  <td className="px-3 py-2 whitespace-nowrap" style={{ width: '50px' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedProducts.has(product.id)}
+                      onChange={() => handleSelectProduct(product.id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </td>
                   {/* Imagem do Produto */}
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="px-3 py-2 whitespace-nowrap" style={{ width: '300px' }}>
                     <div className="flex justify-center">
                       <img 
                         src={product.referencia ? `https://nyc3.digitaloceanspaces.com/moribr/base-fotos/${product.referencia}.jpg` : '/placeholder-product.png'} 
                         alt={product.referencia || 'Produto'}
                         className="object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
-                        style={{ width: '90px', height: '90px' }}
+                        style={{ width: '150px', height: 'auto' }}
                         onClick={() => handleOpenLightbox(product)}
                         onError={(e) => {
                           e.target.src = '/placeholder-product.png';
