@@ -4,6 +4,7 @@ import { ORDER_STATUS } from '../services/productService';
 import { hybridProductService } from '../services/hybridProductService';
 import { externalProductService } from '../services/externalProductService';
 import { containerService } from '../services/containerService';
+import { linkedProductService } from '../services/linkedProductService';
 import { formatNumber, formatUSD, formatRMB, formatNCM, formatInteger, formatWeight } from '../utils/numberFormat';
 import ExcelJS from 'exceljs';
 import ProductForm from './ProductForm';
@@ -38,7 +39,7 @@ const ProductList = () => {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const data = await hybridProductService.getAllProducts();
+      const data = await linkedProductService.getAllLinkedProducts();
       setProducts(data);
     } catch (error) {
       console.error('Erro ao carregar produtos:', error);
@@ -58,7 +59,7 @@ const ProductList = () => {
 
   const handleCreateProduct = async (productData) => {
     try {
-      await hybridProductService.createProduct(productData);
+      await linkedProductService.createLinkedProduct(productData);
       await loadProducts();
       setShowForm(false);
       alert('Produto criado com sucesso!');
@@ -74,73 +75,18 @@ const ProductList = () => {
 
   const handleLinkExternalProduct = async (externalProduct) => {
     try {
-      // Criar um produto no sistema de pedidos baseado no produto externo
-      const newProduct = {
-        referencia: externalProduct.referencia,
-        nomeRaviProfit: externalProduct.nomeRaviProfit,
-        profit: 0, // Valor padrão
-        ncm: externalProduct.ncm || '',
-        orderQtyBox: 0,
-        unitCtn: externalProduct.unitCtn || 0,
-        orderQtyUn: 0,
-        dataPedido: new Date(),
-        lote: '',
-        status: ORDER_STATUS.DESENVOLVIMENTO,
-        container: '',
-        eta: '',
-        unitPriceRmb: externalProduct.unitPriceRmb || 0,
-        totalRmb: 0,
-        valorInvoiceUs: externalProduct.valorInvoiceUsd || 0,
-        totalInvoice: 0,
-        pesoUnitario: externalProduct.pesoUnitario || 0,
-        nw: externalProduct.nw || 0,
-        totalPesoLiq: 0,
-        gw: externalProduct.gw || 0,
-        totalPesoBruto: 0,
-        usKg: 0,
-        usKgMin: 0,
-        cbm: externalProduct.cbm || 0,
-        cbmTotal: 0,
-        dataGeracaoPedido: new Date(),
-        fabrica: externalProduct.fabrica || '',
-        itemNo: externalProduct.itemNo || '',
-        description: externalProduct.descricao || externalProduct.description || '',
-        name: externalProduct.nome || externalProduct.name || '',
-        remark: externalProduct.remark || 'Produto vinculado do sistema externo',
-        obs: externalProduct.obs || `Vinculado do sistema externo - REF: ${externalProduct.referencia}`,
-        unit: externalProduct.unit || 'UN',
-        l: externalProduct.l || 0,
-        w: externalProduct.w || 0,
-        h: externalProduct.h || 0,
-        nomeInvoiceEn: externalProduct.nomeInvoiceEn || '',
-        nomeDiNb: externalProduct.nomeDiNb || '',
-        marca: externalProduct.marca || '',
-        linhaCotacoes: externalProduct.linhaCotacoes || '',
-        moq: externalProduct.moq || 0,
-        qtMinVenda: externalProduct.qtMinVenda || 0,
-        dun: externalProduct.dun || '',
-        cest: externalProduct.cest || '',
-        ean: externalProduct.ean || '',
-        codRavi: externalProduct.codRavi || '',
-        obsPedido: externalProduct.obsPedido || 'Produto vinculado do sistema externo',
-        // Campos de vinculação
-        produtoExternoId: externalProduct.id,
-        produtoExternoRef: externalProduct.referencia,
-        produtoExternoNome: externalProduct.nomeRaviProfit || externalProduct.name,
-        produtoExternoPreco: externalProduct.unitPriceRmb,
-        produtoExternoCategoria: externalProduct.marca,
-        produtoExternoStock: externalProduct.qtMinVenda,
-        vinculadoEm: new Date(),
-        vinculadoPor: 'sistema'
-      };
-
-      await hybridProductService.createProduct(newProduct);
+      // Usar o serviço de sincronização para vincular produto externo
+      const productId = await linkedProductService.syncWithExternalBase(
+        externalProduct.referencia, 
+        externalProduct
+      );
+      
       await loadProducts();
       setShowExternalSearchModal(false);
-      alert(`Produto ${externalProduct.referencia} vinculado com sucesso ao sistema de pedidos!`);
+      alert(`Produto "${externalProduct.referencia}" vinculado com sucesso!`);
     } catch (error) {
       console.error('Erro ao vincular produto externo:', error);
-      alert(error.message || 'Erro ao vincular produto externo');
+      alert('Erro ao vincular produto: ' + error.message);
     }
   };
 
@@ -191,7 +137,7 @@ const ProductList = () => {
         }
       }
       
-      await hybridProductService.updateProduct(productId, updatedProduct);
+      await linkedProductService.updateLinkedProduct(productId, updatedProduct);
       await loadProducts();
       setEditingCell(null);
     } catch (error) {
@@ -333,7 +279,7 @@ const ProductList = () => {
 
   const handleUpdateProduct = async (productId, productData) => {
     try {
-      await hybridProductService.updateProduct(productId, productData);
+      await linkedProductService.updateLinkedProduct(productId, productData);
       await loadProducts();
       setEditingProduct(null);
     } catch (error) {
@@ -344,7 +290,7 @@ const ProductList = () => {
   const handleDeleteProduct = async (productId) => {
     if (window.confirm('Tem certeza que deseja excluir este produto?')) {
       try {
-        await hybridProductService.deleteProduct(productId);
+        await linkedProductService.deleteLinkedProduct(productId);
         await loadProducts();
       } catch (error) {
         console.error('Erro ao excluir produto:', error);
@@ -445,7 +391,7 @@ const ProductList = () => {
       };
 
       // Atualizar produto
-      await hybridProductService.updateProduct(product.id, updatedData);
+      await linkedProductService.updateLinkedProduct(product.id, updatedData);
       await loadProducts();
       
       alert('Produto atualizado com sucesso da base externa!');
@@ -841,7 +787,7 @@ const ProductList = () => {
 
       // Atualizar status dos produtos para "Fabricação"
       const updatePromises = orderProducts.map(product => 
-        hybridProductService.updateProduct(product.id, { status: ORDER_STATUS.FABRICACAO })
+        linkedProductService.updateLinkedProduct(product.id, { status: ORDER_STATUS.FABRICACAO })
       );
 
       await Promise.all(updatePromises);
@@ -858,12 +804,12 @@ const ProductList = () => {
 
   const handleStatusChange = async (productId, newStatus) => {
     try {
+      const product = products.find(p => p.id === productId);
+      const previousStatus = product.status;
       const updatedProduct = { status: newStatus };
       
       // Se o status for "Embarcado" e não houver container associado, solicitar container
       if (newStatus === ORDER_STATUS.EMBARCADO) {
-        const product = products.find(p => p.id === productId);
-        
         if (!product.container && containers.length > 0) {
           // Mostrar modal para seleção de container
           setProductToEmbark(product);
@@ -875,7 +821,15 @@ const ProductList = () => {
         }
       }
       
-      await hybridProductService.updateProduct(productId, updatedProduct);
+      // Atualizar produto
+      await linkedProductService.updateLinkedProduct(productId, updatedProduct);
+      
+      // Se mudou para Embarcado ou Nacionalizado, salvar histórico completo
+      if ((newStatus === ORDER_STATUS.EMBARCADO || newStatus === ORDER_STATUS.NACIONALIZADO) && 
+          previousStatus !== newStatus) {
+        await linkedProductService.saveStatusHistory(productId, product, newStatus, previousStatus);
+      }
+      
       await loadProducts();
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
@@ -893,13 +847,25 @@ const ProductList = () => {
         return;
       }
       
+      const previousStatus = productToEmbark.status;
       const updatedProduct = {
         status: ORDER_STATUS.EMBARCADO,
         container: containerNumber,
         eta: selectedContainer.eta || ''
       };
       
-      await hybridProductService.updateProduct(productToEmbark.id, updatedProduct);
+      await linkedProductService.updateLinkedProduct(productToEmbark.id, updatedProduct);
+      
+      // Salvar histórico completo quando mudar para Embarcado
+      if (previousStatus !== ORDER_STATUS.EMBARCADO) {
+        await linkedProductService.saveStatusHistory(
+          productToEmbark.id, 
+          { ...productToEmbark, ...updatedProduct }, 
+          ORDER_STATUS.EMBARCADO, 
+          previousStatus
+        );
+      }
+      
       await loadProducts();
       
       setShowContainerSelectionModal(false);

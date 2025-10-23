@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, Plus, Search, Edit, Trash2, Eye, Calendar, DollarSign, Weight, Ship, Copy, X } from 'lucide-react';
 import { containerService } from '../services/containerService';
 import { hybridProductService } from '../services/hybridProductService';
+import { linkedProductService } from '../services/linkedProductService';
 import { formatNumber, formatUSD, formatRMB } from '../utils/numberFormat';
 import ContainerForm from './ContainerForm';
 import ContainerDetails from './ContainerDetails';
@@ -29,7 +30,7 @@ const ContainerManagement = () => {
 
   const loadEmbarkedProducts = async () => {
     try {
-      const products = await hybridProductService.getAllProducts();
+      const products = await linkedProductService.getAllLinkedProducts();
       const embarked = products.filter(product => 
         product.status === 'Embarcado' && product.container
       );

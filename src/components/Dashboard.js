@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Package, Clock, Ship, Calendar } from 'lucide-react';
 import { hybridProductService } from '../services/hybridProductService';
 import { containerService } from '../services/containerService';
+import { linkedProductService } from '../services/linkedProductService';
 import { ORDER_STATUS } from '../services/productService';
 import { formatNumber, formatUSD, formatRMB } from '../utils/numberFormat';
 
@@ -83,7 +84,7 @@ const Dashboard = () => {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const data = await hybridProductService.getAllProducts();
+      const data = await linkedProductService.getAllLinkedProducts();
       setProducts(data);
       
       // Calcular estatísticas
