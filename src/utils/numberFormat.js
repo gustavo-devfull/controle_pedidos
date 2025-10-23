@@ -65,19 +65,35 @@ export const parseFormattedNumber = (formattedValue) => {
     return 0;
   }
   
-  // Remove símbolos de moeda e espaços
-  let cleanValue = formattedValue.replace(/[$¥R$\s]/g, '');
+  // Converter para string se não for
+  let cleanValue = String(formattedValue);
   
-  // Se não há vírgula, tratar como número inteiro
-  if (!cleanValue.includes(',')) {
-    // Remove pontos (separadores de milhares) e converte
-    cleanValue = cleanValue.replace(/\./g, '');
+  // Remove símbolos de moeda e espaços
+  cleanValue = cleanValue.replace(/[$¥R$\s]/g, '');
+  
+  // Se não há vírgula nem ponto, tratar como número inteiro
+  if (!cleanValue.includes(',') && !cleanValue.includes('.')) {
     const numValue = parseFloat(cleanValue);
     return isNaN(numValue) ? 0 : numValue;
   }
   
-  // Substitui ponto por vazio (separador de milhares) e vírgula por ponto (decimal)
-  cleanValue = cleanValue.replace(/\./g, '').replace(',', '.');
+  // Se há vírgula, assumir formato brasileiro (1.234,56)
+  if (cleanValue.includes(',')) {
+    // Remove pontos (separadores de milhares) e substitui vírgula por ponto
+    cleanValue = cleanValue.replace(/\./g, '').replace(',', '.');
+  }
+  // Se há apenas ponto, verificar se é decimal ou separador de milhares
+  else if (cleanValue.includes('.')) {
+    const parts = cleanValue.split('.');
+    // Se a última parte tem 2 dígitos, assumir que é decimal
+    if (parts.length === 2 && parts[1].length <= 2) {
+      // Formato americano (1234.56)
+      cleanValue = cleanValue;
+    } else {
+      // Formato brasileiro sem vírgula (1.234)
+      cleanValue = cleanValue.replace(/\./g, '');
+    }
+  }
   
   const numValue = parseFloat(cleanValue);
   return isNaN(numValue) ? 0 : numValue;

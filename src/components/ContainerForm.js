@@ -149,11 +149,30 @@ const ContainerForm = ({ container, onSubmit, onClose }) => {
     }));
   };
 
+  // Estado para controlar campos em edição
+  const [editingFields, setEditingFields] = useState(new Set());
+
   // Função específica para campos de moeda formatados
   const handleCurrencyChange = (e) => {
     const { name, value } = e.target;
     
-    console.log('Currency change:', { name, value });
+    // Armazenar o valor bruto durante a edição
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Função para quando o campo perde o foco (onBlur)
+  const handleCurrencyBlur = (e) => {
+    const { name, value } = e.target;
+    
+    // Remover do estado de edição
+    setEditingFields(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(name);
+      return newSet;
+    });
     
     // Se o valor estiver vazio, definir como 0
     if (!value || value.trim() === '') {
@@ -166,12 +185,30 @@ const ContainerForm = ({ container, onSubmit, onClose }) => {
     
     // Converter valor formatado para número
     const processedValue = parseFormattedNumber(value);
-    console.log('Processed value:', processedValue);
     
     setFormData(prev => ({
       ...prev,
       [name]: processedValue
     }));
+  };
+
+  // Função para quando o campo ganha foco (onFocus)
+  const handleCurrencyFocus = (e) => {
+    const { name } = e.target;
+    
+    // Adicionar ao estado de edição
+    setEditingFields(prev => new Set(prev).add(name));
+    
+    // Mostrar valor bruto durante a edição
+    const currentValue = formData[name];
+    if (currentValue && typeof currentValue === 'number') {
+      // Converter número para string sem formatação para edição
+      const rawValue = currentValue.toString().replace('.', ',');
+      setFormData(prev => ({
+        ...prev,
+        [name]: rawValue
+      }));
+    }
   };
 
   // Função para renderizar campo numérico com formatação
@@ -182,6 +219,10 @@ const ContainerForm = ({ container, onSubmit, onClose }) => {
       return formatNumber(val, decimals);
     };
     
+    // Se o campo está sendo editado, mostrar valor bruto
+    const isEditing = editingFields.has(name);
+    const displayValue = isEditing ? value : formatValue(value);
+    
     return (
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -190,8 +231,10 @@ const ContainerForm = ({ container, onSubmit, onClose }) => {
         <input
           type="text"
           name={name}
-          value={formatValue(value)}
+          value={displayValue}
           onChange={handleCurrencyChange}
+          onFocus={handleCurrencyFocus}
+          onBlur={handleCurrencyBlur}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder={formatValue(0)}
         />
