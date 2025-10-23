@@ -84,6 +84,21 @@ const Dashboard = () => {
   const loadProducts = async () => {
     try {
       setLoading(true);
+      
+      // Primeiro, verificar e sincronizar automaticamente todos os produtos
+      console.log('Verificando atualizações da base externa...');
+      try {
+        const syncResult = await linkedProductService.checkAndSyncAllProducts();
+        console.log('Resultado da sincronização:', syncResult);
+        
+        if (syncResult.updatedCount > 0) {
+          console.log(`${syncResult.updatedCount} produtos foram atualizados automaticamente`);
+        }
+      } catch (syncError) {
+        console.warn('Erro na sincronização automática (continuando mesmo assim):', syncError);
+      }
+      
+      // Depois, carregar os produtos atualizados
       const data = await linkedProductService.getAllLinkedProducts();
       setProducts(data);
       

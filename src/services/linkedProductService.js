@@ -283,6 +283,115 @@ class LinkedProductService {
     }
   }
 
+  // Verificar e sincronizar automaticamente todos os produtos vinculados
+  async checkAndSyncAllProducts() {
+    try {
+      console.log('Verificando e sincronizando todos os produtos vinculados...');
+      
+      // Buscar todos os produtos vinculados
+      const linkedProducts = await this.getAllLinkedProducts();
+      console.log(`Encontrados ${linkedProducts.length} produtos para verificação`);
+      
+      let updatedCount = 0;
+      let errorCount = 0;
+      
+      // Processar cada produto
+      for (const product of linkedProducts) {
+        try {
+          if (!product.referencia) {
+            console.warn(`Produto ${product.id} sem referência, pulando...`);
+            continue;
+          }
+          
+          console.log(`Verificando produto: ${product.referencia}`);
+          
+          // Buscar dados atualizados da base externa
+          const externalProducts = await this.searchExternalProduct(product.referencia);
+          
+          if (externalProducts && externalProducts.length > 0) {
+            const externalProduct = externalProducts[0];
+            
+            // Verificar se há diferenças significativas
+            const hasChanges = this.hasSignificantChanges(product, externalProduct);
+            
+            if (hasChanges) {
+              console.log(`Atualizando produto ${product.referencia} com dados da base externa`);
+              
+              // Sincronizar com base externa
+              await this.syncWithExternalBase(product.referencia, externalProduct);
+              updatedCount++;
+            } else {
+              console.log(`Produto ${product.referencia} já está atualizado`);
+            }
+          } else {
+            console.warn(`Produto ${product.referencia} não encontrado na base externa`);
+          }
+          
+          // Pequena pausa para não sobrecarregar a API
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+        } catch (error) {
+          console.error(`Erro ao verificar produto ${product.referencia}:`, error);
+          errorCount++;
+        }
+      }
+      
+      console.log(`Sincronização concluída: ${updatedCount} produtos atualizados, ${errorCount} erros`);
+      return { updatedCount, errorCount, totalChecked: linkedProducts.length };
+      
+    } catch (error) {
+      console.error('Erro ao verificar e sincronizar produtos:', error);
+      throw error;
+    }
+  }
+
+  // Buscar produto na base externa
+  async searchExternalProduct(referencia) {
+    try {
+      // Importar o serviço externo dinamicamente para evitar dependência circular
+      const { externalProductService } = await import('./externalProductService');
+      return await externalProductService.searchProductsByRef(referencia);
+    } catch (error) {
+      console.error('Erro ao buscar produto na base externa:', error);
+      return null;
+    }
+  }
+
+  // Verificar se há mudanças significativas entre produto local e externo
+  hasSignificantChanges(localProduct, externalProduct) {
+    const fieldsToCheck = [
+      'nomeRaviProfit', 'NOME', 'DESCRICAO',
+      'ncm', 'NCM',
+      'unitCtn', 'UNIT_CTN',
+      'unitPriceRmb', 'UNIT_PRICE_RMB',
+      'valorInvoiceUsd', 'VALOR_INVOICE_USD',
+      'pesoUnitario', 'PESO_UNITARIO',
+      'nw', 'NW',
+      'gw', 'GW',
+      'cbm', 'CBM',
+      'marca', 'MARCA',
+      'linhaCotacoes', 'LINHA_COTACOES',
+      'moq', 'MOQ',
+      'qtMinVenda', 'QT_MIN_VENDA'
+    ];
+    
+    for (const field of fieldsToCheck) {
+      const localValue = localProduct[field];
+      const externalValue = externalProduct[field];
+      
+      // Verificar se os valores são diferentes (considerando null/undefined como vazio)
+      const localNormalized = localValue === null || localValue === undefined ? '' : String(localValue);
+      const externalNormalized = externalValue === null || externalValue === undefined ? '' : String(externalValue);
+      
+      if (localNormalized !== externalNormalized) {
+        console.log(`Campo ${field} mudou: "${localNormalized}" -> "${externalNormalized}"`);
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
   // Funções auxiliares para cálculos
   calculateOrderQtyUn(orderQtyBox, unitCtn) {
     return (parseFloat(orderQtyBox) || 0) * (parseFloat(unitCtn) || 0);
