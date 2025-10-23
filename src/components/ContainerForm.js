@@ -149,6 +149,31 @@ const ContainerForm = ({ container, onSubmit, onClose }) => {
     }));
   };
 
+  // Função específica para campos de moeda formatados
+  const handleCurrencyChange = (e) => {
+    const { name, value } = e.target;
+    
+    console.log('Currency change:', { name, value });
+    
+    // Se o valor estiver vazio, definir como 0
+    if (!value || value.trim() === '') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: 0
+      }));
+      return;
+    }
+    
+    // Converter valor formatado para número
+    const processedValue = parseFormattedNumber(value);
+    console.log('Processed value:', processedValue);
+    
+    setFormData(prev => ({
+      ...prev,
+      [name]: processedValue
+    }));
+  };
+
   // Função para renderizar campo numérico com formatação
   const renderNumberField = (name, value, label, currency = null, decimals = 2) => {
     const formatValue = (val) => {
@@ -166,7 +191,7 @@ const ContainerForm = ({ container, onSubmit, onClose }) => {
           type="text"
           name={name}
           value={formatValue(value)}
-          onChange={handleChange}
+          onChange={handleCurrencyChange}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder={formatValue(0)}
         />

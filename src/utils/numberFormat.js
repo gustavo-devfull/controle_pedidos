@@ -68,6 +68,14 @@ export const parseFormattedNumber = (formattedValue) => {
   // Remove símbolos de moeda e espaços
   let cleanValue = formattedValue.replace(/[$¥R$\s]/g, '');
   
+  // Se não há vírgula, tratar como número inteiro
+  if (!cleanValue.includes(',')) {
+    // Remove pontos (separadores de milhares) e converte
+    cleanValue = cleanValue.replace(/\./g, '');
+    const numValue = parseFloat(cleanValue);
+    return isNaN(numValue) ? 0 : numValue;
+  }
+  
   // Substitui ponto por vazio (separador de milhares) e vírgula por ponto (decimal)
   cleanValue = cleanValue.replace(/\./g, '').replace(',', '.');
   
