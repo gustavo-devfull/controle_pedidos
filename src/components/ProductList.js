@@ -624,9 +624,15 @@ const ProductList = () => {
         // Calcular campos derivados
         const orderQtyUn = product.orderQtyUn || calculateOrderQtyUn(product.orderQtyBox, product.unitCtn);
         const totalRmb = product.totalRmb || calculateTotalRmb(orderQtyUn, product.unitPriceRmb);
-        const cbmTotal = product.cbmTotal || (product.cbm * orderQtyUn);
-        const totalPesoBruto = product.totalPesoBruto || (product.gw * orderQtyUn);
-        const totalPesoLiq = product.totalPesoLiq || (product.nw * orderQtyUn);
+        
+        // Ajustar cálculos conforme solicitado: usar CTNS em vez de orderQtyUn
+        const ctns = product.orderQtyBox || 0;
+        const cbmTotal = product.cbmTotal || (product.cbm * ctns);
+        const totalPesoBruto = product.totalPesoBruto || (product.gw * ctns);
+        const totalPesoLiq = product.totalPesoLiq || (product.nw * ctns);
+        
+        // Formatar AMOUNT RMB com símbolo ¥ e formatação brasileira
+        const amountRmbFormatted = formatRMB(totalRmb, 2);
 
         // Preparar dados da linha
         const rowData = [
@@ -641,9 +647,9 @@ const ProductList = () => {
           product.orderQtyBox || 0,
           product.unitCtn || 0,
           orderQtyUn,
-          product.unitPriceRmb || 0,
+          product.unitPriceRmb || 0, // Será formatado depois como número com 2 casas decimais
           product.unit || '',
-          totalRmb,
+          amountRmbFormatted, // String formatada com ¥ e formatação brasileira
           product.l || 0,
           product.w || 0,
           product.h || 0,
@@ -668,6 +674,23 @@ const ProductList = () => {
 
         // Definir altura padrão da linha (será ajustada se tiver imagem)
         row.height = Math.round(250 * 0.75); // Altura padrão em pontos Excel (250px ≈ 188 pontos)
+
+        // Formatar células específicas
+        // UNIT PRICE RMB (coluna 12) - formato numérico com 2 casas decimais
+        const unitPriceCell = row.getCell(12); // Coluna L (UNIT PRICE RMB)
+        unitPriceCell.numFmt = '#,##0.00';
+        
+        // CBM TOTAL (coluna 19) - formato numérico com 2 casas decimais
+        const cbmTotalCell = row.getCell(19); // Coluna S (CBM TOTAL)
+        cbmTotalCell.numFmt = '#,##0.00';
+        
+        // T.G.W (coluna 21) - formato numérico com 2 casas decimais
+        const tgwCell = row.getCell(21); // Coluna U (G.T.W)
+        tgwCell.numFmt = '#,##0.00';
+        
+        // N.T.W (coluna 23) - formato numérico com 2 casas decimais
+        const ntwCell = row.getCell(23); // Coluna W (N.T.W)
+        ntwCell.numFmt = '#,##0.00';
 
         // Formatar células da linha
         row.eachCell((cell, colNumber) => {
