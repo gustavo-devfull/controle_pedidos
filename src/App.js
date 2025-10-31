@@ -19,7 +19,7 @@ const App = () => {
     <Router>
       <div className="min-h-screen bg-gray-50">
         <Navigation />
-        <main className="ml-64">
+        <main className="w-full pt-16 px-0">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/produtos" element={<ProductList />} />
@@ -33,7 +33,6 @@ const App = () => {
 };
 
 const Navigation = () => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
 
   const navigation = [
@@ -45,76 +44,49 @@ const Navigation = () => {
   const isActive = (href) => location.pathname === href;
 
   return (
-    <>
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="bg-white p-2 rounded-md shadow-md"
-        >
-          {isMobileMenuOpen ? (
-            <X className="h-6 w-6 text-gray-600" />
-          ) : (
-            <Menu className="h-6 w-6 text-gray-600" />
-          )}
-        </button>
-      </div>
-
-      {/* Mobile menu overlay */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-black bg-opacity-50" onClick={() => setIsMobileMenuOpen(false)} />
-      )}
-
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-        isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <div className="flex flex-col h-full">
+    <header className="fixed top-0 left-0 right-0 z-40 border-b border-[#0175a6]" style={{ backgroundColor: '#0175a6' }}>
+      <div className="max-w-full mx-auto px-4">
+        <div className="h-16 flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center justify-center h-16 px-4 border-b border-gray-200">
-            <div className="flex items-center space-x-2">
-              <Package className="h-8 w-8 text-primary-600" />
-              <span className="text-xl font-bold text-gray-900">Pedidos Ravi</span>
-            </div>
+          <div className="flex items-center space-x-3">
+            <img src="/RAVI-LOGO-BRANCO.svg" alt="Pedidos Ravi" style={{ height: 50 }} />
+            <span className="font-semibold uppercase" style={{ color: '#fff', fontSize: 16, letterSpacing: '-1px' }}>Gerenciador de Pedidos Ravi</span>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
+          {/* Nav links */}
+          <nav className="flex items-center space-x-2">
             {navigation.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.name}
                   to={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActive(item.href)
-                      ? 'bg-primary-100 text-primary-700'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      ? 'bg-white/20 text-white'
+                      : 'text-white hover:bg-white/10'
                   }`}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span>{item.name}</span>
+                  <Icon className="h-4 w-4 text-white" />
+                  <span className="text-white">{item.name}</span>
                 </Link>
               );
             })}
           </nav>
 
-          {/* User section */}
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-primary-700">U</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">Usuário</p>
-                <p className="text-xs text-gray-500 truncate">admin@ravi.com</p>
-              </div>
+          {/* User */}
+          <div className="hidden md:flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+              <span className="text-sm font-medium" style={{ color: '#fff' }}>U</span>
+            </div>
+            <div className="leading-none">
+              <p className="text-sm font-medium" style={{ color: '#fff' }}>Usuário</p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.8)' }}>admin@ravi.com</p>
             </div>
           </div>
         </div>
       </div>
-    </>
+    </header>
   );
 };
 

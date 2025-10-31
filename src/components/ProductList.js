@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Package, Plus, Search, Edit, Trash2, Eye, X, RefreshCw, FileSpreadsheet, ChevronUp, ChevronDown } from 'lucide-react';
 import { ORDER_STATUS } from '../services/productService';
 import { hybridProductService } from '../services/hybridProductService';
@@ -12,6 +13,7 @@ import ProductDetails from './ProductDetails';
 import ProductSearchModal from './ProductSearchModal';
 
 const ProductList = () => {
+  const location = useLocation();
   const [products, setProducts] = useState([]);
   const [containers, setContainers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,11 +39,58 @@ const ProductList = () => {
     status: '',
     container: ''
   });
+  const topScrollbarRef = useRef(null);
+  const tableScrollRef = useRef(null);
+  const tableRef = useRef(null);
+  const isSyncingRef = useRef(false);
+  const [tableScrollWidth, setTableScrollWidth] = useState(2240);
 
   useEffect(() => {
     loadProducts();
     loadContainers();
   }, []);
+
+  // Aplicar filtro por container vindo da navegação (state ou query)
+  useEffect(() => {
+    const state = location.state || {};
+    const searchParams = new URLSearchParams(location.search || '');
+    const fromState = state.selectedContainer;
+    const fromQuery = searchParams.get('container');
+    const target = fromState || fromQuery;
+    if (target) {
+      setContainerFilter(target);
+    }
+  }, [location.state, location.search]);
+
+  // Medir largura do conteúdo da tabela para a barra superior
+  useEffect(() => {
+    const updateScrollWidth = () => {
+      if (tableRef.current) {
+        setTableScrollWidth(tableRef.current.scrollWidth || 2240);
+      }
+    };
+    updateScrollWidth();
+    window.addEventListener('resize', updateScrollWidth);
+    return () => window.removeEventListener('resize', updateScrollWidth);
+  }, [products, containers, sortField, sortDirection]);
+
+  const handleTopScroll = (e) => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    if (tableScrollRef.current) {
+      tableScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+    isSyncingRef.current = false;
+  };
+
+  const handleBodyScroll = (e) => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    if (topScrollbarRef.current) {
+      topScrollbarRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+    isSyncingRef.current = false;
+  };
 
   const loadProducts = async () => {
     try {
@@ -840,7 +889,7 @@ const ProductList = () => {
 
       // Atualizar status dos produtos para "Fabricação"
       const updatePromises = orderProducts.map(product => 
-        linkedProductService.updateLinkedProduct(product.id, { status: ORDER_STATUS.FABRICACAO })
+        linkedProductService.updateLinkedProduct(product.id, { status: ORDER_STATUS.FABRICACAO, dataGeracaoPedido: new Date().toISOString() })
       );
 
       await Promise.all(updatePromises);
@@ -1165,7 +1214,6 @@ const ProductList = () => {
           </button>
         </div>
       </div>
-
       {/* Filtros */}
       <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
         <div className="flex flex-col md:flex-row gap-4">
@@ -1309,7 +1357,7 @@ const ProductList = () => {
       )}
 
       {/* Tabela de Produtos - Todos os Campos */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden sticky top-16 z-30">
         <style>{`
           .product-table th:not(:last-child), 
           .product-table td:not(:last-child) {
@@ -1328,10 +1376,18 @@ const ProductList = () => {
             background-color: #f3f4f6;
             font-size: 12px;
             font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.05);
           }
         `}</style>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 product-table" style={{ minWidth: '2240px', borderCollapse: 'separate', borderSpacing: 0 }}>
+        {/* Barra de rolagem horizontal abaixo do cabeçalho */}
+        <div className="overflow-x-auto overflow-y-hidden" ref={topScrollbarRef} onScroll={handleTopScroll}>
+          <div style={{ width: `${tableScrollWidth}px`, height: '8px' }} />
+        </div>
+        <div className="overflow-x-auto" ref={tableScrollRef} onScroll={handleBodyScroll}>
+          <table ref={tableRef} className="min-w-full divide-y divide-gray-200 product-table" style={{ minWidth: '2240px', borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead>
               <tr>
                 {/* Checkbox de Seleção */}
@@ -1342,6 +1398,10 @@ const ProductList = () => {
                     onChange={handleSelectAll}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
+                </th>
+                {/* Ações (movido antes da Imagem) */}
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                  Ações
                 </th>
                 {/* Imagem do Produto */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '300px' }}>
@@ -1555,11 +1615,6 @@ const ProductList = () => {
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                   OBS PEDIDO
                 </th>
-                
-                {/* Ações */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                  Ações
-                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -1581,6 +1636,42 @@ const ProductList = () => {
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                   </td>
+                  {/* Ações (movido para a 2ª coluna) */}
+                  <td className="px-3 py-2 whitespace-nowrap text-xs font-medium" style={{ width: '96px' }}>
+                    <div className="flex space-x-1">
+                      <button
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setShowDetails(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Ver detalhes"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => setEditingProduct(product)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Editar"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleUpdateFromBase(product)}
+                        className="text-green-600 hover:text-green-900"
+                        title="Atualizar da Base de Produtos"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProduct(product.id)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Excluir"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </td>
                   {/* Imagem do Produto */}
                   <td className="px-3 py-2 whitespace-nowrap" style={{ width: '300px' }}>
                     <div className="flex justify-center">
@@ -1597,13 +1688,13 @@ const ProductList = () => {
                     </div>
                   </td>
                   {/* Campos Básicos */}
-                  <td className="px-3 py-2 whitespace-nowrap text-xs font-medium text-gray-900">
+                  <td className="px-3 py-2 whitespace-nowrap text-xs font-medium text-gray-900" style={{ width: '96px' }}>
                     {product.referencia || 'N/A'}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
+                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900" style={{ width: '108px' }}>
                     {product.nomeRaviProfit || 'N/A'}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
+                  <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-900">
                     {formatNCM(product.ncm)}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
@@ -1663,13 +1754,13 @@ const ProductList = () => {
                     {formatWeight(product.nw)}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
-                    {formatWeight(product.totalPesoLiq)}
+                    {formatWeight((product.nw || 0) * (product.orderQtyBox || 0))}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
                     {formatWeight(product.gw)}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
-                    {formatWeight(product.totalPesoBruto)}
+                    {formatWeight((product.gw || 0) * (product.orderQtyBox || 0))}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
                     {product.usKg ? `$${product.usKg}` : 'N/A'}
@@ -1683,7 +1774,7 @@ const ProductList = () => {
                     {product.cbm ? formatNumber(product.cbm, 3) : 'N/A'}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
-                    {product.cbmTotal ? formatNumber(product.cbmTotal, 3) : 'N/A'}
+                    {formatNumber(((product.cbm || 0) * (product.orderQtyBox || 0)), 3)}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
                     {product.dataGeracaoPedido ? new Date(product.dataGeracaoPedido).toLocaleDateString('pt-BR') : 'N/A'}
@@ -1729,43 +1820,6 @@ const ProductList = () => {
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-900 max-w-xs truncate" title={product.obsPedido || 'N/A'}>
                     {product.obsPedido || 'N/A'}
-                  </td>
-                  
-                  {/* Ações */}
-                  <td className="px-3 py-2 whitespace-nowrap text-xs font-medium">
-                    <div className="flex space-x-1">
-                      <button
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setShowDetails(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Ver detalhes"
-                      >
-                        <Eye className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => setEditingProduct(product)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Editar"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleUpdateFromBase(product)}
-                        className="text-green-600 hover:text-green-900"
-                        title="Atualizar da Base de Produtos"
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProduct(product.id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Excluir"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
                   </td>
                 </tr>
               ))}

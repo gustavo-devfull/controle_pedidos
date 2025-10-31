@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, Search, Edit, Trash2, Eye, Calendar, DollarSign, Weight, Ship, Copy, X } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Package, Plus, Search, Edit, Trash2, Eye, Calendar, DollarSign, Weight, Ship, Copy, X, Battery } from 'lucide-react';
 import { containerService } from '../services/containerService';
 import { hybridProductService } from '../services/hybridProductService';
 import { linkedProductService } from '../services/linkedProductService';
@@ -8,6 +9,7 @@ import ContainerForm from './ContainerForm';
 import ContainerDetails from './ContainerDetails';
 
 const ContainerManagement = () => {
+  const location = useLocation();
   const [containers, setContainers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,6 +18,7 @@ const ContainerManagement = () => {
   const [selectedContainer, setSelectedContainer] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [embarkedProducts, setEmbarkedProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [containerToDuplicate, setContainerToDuplicate] = useState(null);
   const [newContainerNumber, setNewContainerNumber] = useState('');
@@ -26,7 +29,32 @@ const ContainerManagement = () => {
   useEffect(() => {
     loadContainers();
     loadEmbarkedProducts();
+    loadAllProducts();
   }, []);
+
+  const loadAllProducts = async () => {
+    try {
+      const products = await linkedProductService.getAllLinkedProducts();
+      setAllProducts(products);
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error);
+    }
+  };
+
+  // Abrir modal via navegação (state ou query param)
+  useEffect(() => {
+    const state = location.state || {};
+    const searchParams = new URLSearchParams(location.search || '');
+    const containerFromState = state.openContainerNumber;
+    const containerFromQuery = searchParams.get('container');
+    const targetContainer = containerFromState || containerFromQuery;
+    if (targetContainer) {
+      // Aguarda produtos embarcados carregarem
+      setTimeout(() => {
+        handleShowContainerProducts(targetContainer);
+      }, 0);
+    }
+  }, [location.state, location.search, embarkedProducts]);
 
   const loadEmbarkedProducts = async () => {
     try {
@@ -54,6 +82,76 @@ const ContainerManagement = () => {
   // Função para verificar se um container tem produtos embarcados
   const hasEmbarkedProducts = (containerNumber) => {
     return embarkedProducts.some(product => product.container === containerNumber);
+  };
+
+  // Função para calcular CBM TOTAL de um container
+  const calculateContainerCbmTotal = (containerNumber) => {
+    const containerProducts = allProducts.filter(product => product.container === containerNumber);
+    const toNumber = (value) => {
+      if (value === null || value === undefined || value === '') return 0;
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') {
+        const normalized = value.replace(/\./g, '').replace(',', '.');
+        const parsed = parseFloat(normalized);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      return 0;
+    };
+    return containerProducts.reduce((sum, product) => {
+      const cbmTotalRaw = product.cbmTotal;
+      const cbmRaw = product.cbm;
+      const qtyBoxRaw = product.orderQtyBox;
+      const cbmTotalVal = toNumber(cbmTotalRaw);
+      const cbmVal = toNumber(cbmRaw);
+      const qtyBoxVal = toNumber(qtyBoxRaw);
+      const perProductTotal = cbmTotalVal > 0 ? cbmTotalVal : (cbmVal * qtyBoxVal);
+      return sum + (perProductTotal || 0);
+    }, 0);
+  };
+
+  // Função para obter quantidade de produtos de um container
+  const getContainerProductCount = (containerNumber) => {
+    return allProducts.filter(product => product.container === containerNumber).length;
+  };
+
+  // Função para calcular status do container baseado em ETA/ETD
+  const getContainerStatus = (container) => {
+    if (!container) return { status: 'Sem dados', color: 'bg-gray-500' };
+    
+    const parseLocalDate = (value) => {
+      if (!value) return null;
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [y, m, d] = value.split('-').map(Number);
+        return new Date(y, m - 1, d);
+      }
+      const d = new Date(value);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    };
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const etaDate = container?.eta ? parseLocalDate(container.eta) : null;
+    const etdDate = container?.etd ? parseLocalDate(container.etd) : null;
+    
+    if (!etaDate && !etdDate) return { status: 'Sem dados', color: 'bg-gray-500' };
+    
+    if (etaDate && today.getTime() === etaDate.getTime()) {
+      return { status: 'Descarregando', color: 'bg-blue-500' };
+    }
+    if (etaDate && today > etaDate) {
+      return { status: 'Chegou', color: 'bg-green-500' };
+    }
+    if (etdDate && today < etdDate) {
+      return { status: 'Aguardando embarque', color: 'bg-yellow-500' };
+    }
+    if (etdDate && today >= etdDate && etaDate && today < etaDate) {
+      return { status: 'Em trânsito', color: 'bg-purple-500' };
+    }
+    if (!etdDate && etaDate) {
+      return { status: 'Sem ETD', color: 'bg-orange-500' };
+    }
+    
+    return { status: 'Sem dados', color: 'bg-gray-500' };
   };
 
   const loadContainers = async () => {
@@ -255,7 +353,7 @@ const ContainerManagement = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-3">
-          <Ship className="h-8 w-8 text-blue-600" />
+          <Battery className="h-8 w-8 text-blue-600" />
           <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Containers</h1>
         </div>
         <div className="flex space-x-3">
@@ -293,6 +391,10 @@ const ContainerManagement = () => {
           <table className="min-w-full divide-y divide-gray-200" style={{ minWidth: '3000px' }}>
             <thead className="bg-gray-50">
               <tr>
+                {/* Ações */}
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                  Ações
+                </th>
                 {/* Informações Básicas */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                   Número Container
@@ -440,11 +542,6 @@ const ContainerManagement = () => {
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                   Complemento
                 </th>
-                
-                {/* Ações */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                  Ações
-                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -457,6 +554,50 @@ const ContainerManagement = () => {
                       : ''
                   }`}
                 >
+                  {/* Ações */}
+                  <td className="px-3 py-2 whitespace-nowrap text-xs font-medium">
+                    <div className="flex space-x-1">
+                      <button
+                        onClick={() => {
+                          setSelectedContainer(container);
+                          setShowDetails(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Ver detalhes"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          console.log('Editando container:', container);
+                          console.log('Container ID:', container.id);
+                          if (!container.id) {
+                            alert('Erro: Container sem ID válido');
+                            return;
+                          }
+                          setEditingContainer(container);
+                        }}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Editar"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDuplicateContainer(container)}
+                        className="text-green-600 hover:text-green-900"
+                        title="Duplicar container"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteContainer(container.id)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Excluir"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </td>
                   {/* Informações Básicas */}
                   <td className="px-3 py-2 whitespace-nowrap text-xs font-medium text-gray-900">
                     <button
@@ -613,51 +754,6 @@ const ContainerManagement = () => {
                   <td className="px-3 py-2 text-xs text-gray-900 max-w-xs truncate">
                     {container.complemento || 'N/A'}
                   </td>
-                  
-                  {/* Ações */}
-                  <td className="px-3 py-2 whitespace-nowrap text-xs font-medium">
-                    <div className="flex space-x-1">
-                      <button
-                        onClick={() => {
-                          setSelectedContainer(container);
-                          setShowDetails(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Ver detalhes"
-                      >
-                        <Eye className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          console.log('Editando container:', container);
-                          console.log('Container ID:', container.id);
-                          if (!container.id) {
-                            alert('Erro: Container sem ID válido');
-                            return;
-                          }
-                          setEditingContainer(container);
-                        }}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Editar"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDuplicateContainer(container)}
-                        className="text-green-600 hover:text-green-900"
-                        title="Duplicar container"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteContainer(container.id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Excluir"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -677,6 +773,66 @@ const ContainerManagement = () => {
           </div>
         )}
       </div>
+
+      {/* Card de Resumo de Containers */}
+      {filteredContainers.length > 0 && (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredContainers.map((container) => {
+            const containerStatus = getContainerStatus(container);
+            const totalRmb = calculateContainerTotalRmb(container.numeroContainer);
+            const productCount = getContainerProductCount(container.numeroContainer);
+            const cbmTotal = calculateContainerCbmTotal(container.numeroContainer);
+            const parseLocalDate = (value) => {
+              if (!value) return null;
+              if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                const [y, m, d] = value.split('-').map(Number);
+                return new Date(y, m - 1, d);
+              }
+              const d = new Date(value);
+              return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            };
+            const etaDate = container?.eta ? parseLocalDate(container.eta) : null;
+
+            return (
+              <div key={container.id} className="bg-white rounded-lg shadow-sm border p-4">
+                {/* NÚMERO DO CONTAINER */}
+                <div className="mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900">{container.numeroContainer || 'N/A'}</h3>
+                </div>
+                
+                {/* ETA | TOTAL RMB | VALOR FRETE USD */}
+                <div className="mb-3 text-sm">
+                  <span className="text-gray-600">ETA</span>
+                  <span className="text-gray-900 ml-1">{etaDate ? etaDate.toLocaleDateString('pt-BR') : 'N/A'}</span>
+                  <span className="mx-2 text-gray-300">|</span>
+                  <span className="text-blue-600 font-medium">{formatRMB(totalRmb)}</span>
+                  <span className="mx-2 text-gray-300">|</span>
+                  <span className="text-gray-900">{container.valorFreteUsd ? formatUSD(container.valorFreteUsd) : 'N/A'}</span>
+                </div>
+                
+                {/* STATUS DO CONTAINER */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">STATUS DO CONTAINER</span>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${containerStatus.color} text-white`}>
+                      {containerStatus.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* QUANTIDADE DE PRODUTOS | CBM TOTAL */}
+                <div className="border-t border-gray-200 pt-3 text-sm">
+                  <span className="text-gray-900 font-medium">{productCount}</span>
+                  <span className="text-gray-600"> Produtos</span>
+                  <span className="mx-2 text-gray-300">|</span>
+                  <span className="text-gray-900 font-medium">{formatNumber(cbmTotal, 2)}</span>
+                  <span className="text-gray-600"> m³</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Modais */}
       {showForm && (

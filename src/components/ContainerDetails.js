@@ -31,9 +31,6 @@ const ContainerDetails = ({ container, onClose }) => {
             <h2 className="text-xl font-bold text-gray-900">
               Detalhes do Container: {container.numeroContainer}
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Informações completas do container
-            </p>
           </div>
           <button
             onClick={onClose}
@@ -44,16 +41,16 @@ const ContainerDetails = ({ container, onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-140px)] p-6">
+        <div className="overflow-y-auto max-h-[calc(90vh-180px)] p-6">
           <div className="space-y-8">
             
             {/* Informações Básicas */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
                 <Package className="h-5 w-5 mr-2" />
                 Informações Básicas
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-5 gap-6">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <label className="block text-sm font-medium text-gray-600 mb-1">Número do Container</label>
                   <p className="text-lg font-semibold text-gray-900">{container.numeroContainer || 'N/A'}</p>
@@ -75,11 +72,11 @@ const ContainerDetails = ({ container, onClose }) => {
 
             {/* Datas e Viagem */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
                 <Calendar className="h-5 w-5 mr-2" />
                 Datas e Viagem
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-5 gap-6">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <label className="block text-sm font-medium text-gray-600 mb-1">ETD</label>
                   <p className="text-lg font-semibold text-gray-900">{formatDate(container.etd)}</p>
@@ -97,11 +94,11 @@ const ContainerDetails = ({ container, onClose }) => {
 
             {/* Valores Financeiros */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
                 <DollarSign className="h-5 w-5 mr-2" />
                 Valores Financeiros
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-6 gap-6">
                 <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                   <label className="block text-sm font-medium text-green-700 mb-1">Valor do Frete USD</label>
                   <p className="text-lg font-semibold text-green-900">{formatCurrency(container.valorFreteUsd)}</p>
@@ -131,11 +128,11 @@ const ContainerDetails = ({ container, onClose }) => {
 
             {/* CBM e Peso */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
                 <Scale className="h-5 w-5 mr-2" />
                 CBM e Peso
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-6 gap-6">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <label className="block text-sm font-medium text-gray-600 mb-1">CBM Nominal</label>
                   <p className="text-lg font-semibold text-gray-900">{formatCBM(container.cbmNominal)}</p>
@@ -165,11 +162,11 @@ const ContainerDetails = ({ container, onClose }) => {
 
             {/* Taxas e Custos */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
                 <FileText className="h-5 w-5 mr-2" />
                 Taxas e Custos Adicionais
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-6 gap-6">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <label className="block text-sm font-medium text-gray-600 mb-1">Taxa Siscomex</label>
                   <p className="text-lg font-semibold text-gray-900">{formatCurrency(container.taxaSiscomex)}</p>
@@ -200,7 +197,7 @@ const ContainerDetails = ({ container, onClose }) => {
             {/* Observações */}
             {container.complemento && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Observações</h3>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Observações</h3>
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-gray-900 whitespace-pre-wrap">{container.complemento}</p>
                 </div>
@@ -209,8 +206,8 @@ const ContainerDetails = ({ container, onClose }) => {
 
             {/* Informações de Criação */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Informações do Sistema</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">Informações do Sistema</h3>
+              <div className="grid grid-cols-5 gap-6">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <label className="block text-sm font-medium text-gray-600 mb-1">Criado em</label>
                   <p className="text-sm text-gray-900">{formatDate(container.createdAt)}</p>
